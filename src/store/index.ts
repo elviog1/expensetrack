@@ -16,6 +16,7 @@ interface AppState {
   updateWallet: (id: string, data: Partial<Wallet>) => Promise<void>
   deleteWallet: (id: string) => Promise<void>
   depositToWallet: (id: string, amount: number, description?: string) => Promise<void>
+  transferBetweenWallets: (fromId: string, toId: string, amount: number, description?: string) => Promise<void>
 
   addExpense: (data: Omit<Expense, 'id' | 'createdAt'>) => Promise<void>
   deleteExpense: (id: string) => Promise<void>
@@ -87,6 +88,28 @@ export const useStore = create<AppState>((set, get) => ({
       api.deposits.getAll(),
     ])
     set({ wallets, deposits })
+  },
+
+  transferBetweenWallets: async (fromId, toId, amount, description) => {
+    const { wallets } = get()
+    const fromWallet = wallets.find((w) => String(w.id) === String(fromId))
+    if (!fromWallet || fromWallet.balance < amount) return
+    const toWallet = wallets.find((w) => String(w.id) === String(toId))
+    if (!toWallet) return
+    await api.wallets.update(String(fromId), { balance: fromWallet.balance - amount })
+    await api.wallets.update(String(toId), { balance: toWallet.balance + amount })
+    await api.deposits.create({
+      walletId: String(toId),
+      amount,
+      description: description || `Transferencia desde ${fromWallet.name}`,
+      date: getLocalDateString(),
+      createdAt: new Date().toISOString(),
+    })
+    const [updatedWallets, deposits] = await Promise.all([
+      api.wallets.getAll(),
+      api.deposits.getAll(),
+    ])
+    set({ wallets: updatedWallets, deposits })
   },
 
   addExpense: async (data) => {

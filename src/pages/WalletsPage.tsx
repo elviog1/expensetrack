@@ -9,15 +9,18 @@ export default function WalletsPage() {
   const updateWallet = useStore((s) => s.updateWallet)
   const deleteWallet = useStore((s) => s.deleteWallet)
   const depositToWallet = useStore((s) => s.depositToWallet)
+  const transferBetweenWallets = useStore((s) => s.transferBetweenWallets)
   const getWalletBalance = useStore((s) => s.getWalletBalance)
 
   const [modalOpen, setModalOpen] = useState(false)
   const [depositModal, setDepositModal] = useState(false)
+  const [transferModal, setTransferModal] = useState(false)
   const [editing, setEditing] = useState<string | null>(null)
   const [depositWalletId, setDepositWalletId] = useState('')
   const [form, setForm] = useState({ name: '', balance: '', color: '#6366f1' })
   const [depositAmount, setDepositAmount] = useState('')
   const [depositDescription, setDepositDescription] = useState('')
+  const [transfer, setTransfer] = useState({ fromId: '', toId: '', amount: '', description: '' })
 
   const openCreate = () => {
     setEditing(null)
@@ -38,6 +41,11 @@ export default function WalletsPage() {
     setDepositAmount('')
     setDepositDescription('')
     setDepositModal(true)
+  }
+
+  const openTransfer = (id: string) => {
+    setTransfer({ fromId: id, toId: '', amount: '', description: '' })
+    setTransferModal(true)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -62,6 +70,14 @@ export default function WalletsPage() {
     if (amount <= 0) return
     await depositToWallet(depositWalletId, amount, depositDescription || 'Ingreso')
     setDepositModal(false)
+  }
+
+  const handleTransfer = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const amount = parseFloat(transfer.amount) || 0
+    if (amount <= 0 || !transfer.fromId || !transfer.toId || transfer.fromId === transfer.toId) return
+    await transferBetweenWallets(transfer.fromId, transfer.toId, amount, transfer.description)
+    setTransferModal(false)
   }
 
   const handleDelete = async (id: string) => {
@@ -102,6 +118,9 @@ export default function WalletsPage() {
               <div className="flex flex-wrap gap-2 mt-3">
                 <button onClick={() => openDeposit(wallet.id)} className="text-xs text-green-400 hover:text-white bg-dark-600 px-3 py-1.5 rounded-md transition-colors">
                   + Ingresar
+                </button>
+                <button onClick={() => openTransfer(wallet.id)} className="text-xs text-accent-400 hover:text-white bg-dark-600 hover:bg-dark-500 px-3 py-1.5 rounded-md transition-colors">
+                  Transferir
                 </button>
                 <button onClick={() => openEdit(wallet.id)} className="text-xs text-gray-400 hover:text-white bg-dark-600 hover:bg-dark-500 px-3 py-1.5 rounded-md transition-colors">
                   Editar
@@ -147,6 +166,50 @@ export default function WalletsPage() {
           </div>
           <button type="submit" className="w-full bg-success-500 hover:bg-success-500/80 text-white py-2 rounded-lg text-sm font-medium transition-colors">
             Ingresar Dinero
+          </button>
+        </form>
+      </Modal>
+
+      <Modal isOpen={transferModal} onClose={() => setTransferModal(false)} title="Transferir Saldo">
+        <form onSubmit={handleTransfer} className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Desde</label>
+            <select
+              value={transfer.fromId}
+              onChange={(e) => setTransfer({ ...transfer, fromId: e.target.value, toId: transfer.toId === e.target.value ? '' : transfer.toId })}
+              className="w-full bg-dark-700 border border-dark-500 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-accent-500"
+              required
+            >
+              <option value="">Seleccionar billetera</option>
+              {wallets.map((w) => (
+                <option key={w.id} value={w.id}>{w.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Hacia</label>
+            <select
+              value={transfer.toId}
+              onChange={(e) => setTransfer({ ...transfer, toId: e.target.value })}
+              className="w-full bg-dark-700 border border-dark-500 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-accent-500"
+              required
+            >
+              <option value="">Seleccionar billetera</option>
+              {wallets.filter((w) => w.id !== transfer.fromId).map((w) => (
+                <option key={w.id} value={w.id}>{w.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Monto</label>
+            <input type="number" step="0.01" min="0.01" value={transfer.amount} onChange={(e) => setTransfer({ ...transfer, amount: e.target.value })} className="w-full bg-dark-700 border border-dark-500 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-accent-500" required autoFocus />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Descripcion (opcional)</label>
+            <input value={transfer.description} onChange={(e) => setTransfer({ ...transfer, description: e.target.value })} placeholder="Transferencia entre billeteras" className="w-full bg-dark-700 border border-dark-500 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-accent-500" />
+          </div>
+          <button type="submit" className="w-full bg-accent-500 hover:bg-accent-600 text-white py-2 rounded-lg text-sm font-medium transition-colors">
+            Transferir
           </button>
         </form>
       </Modal>
